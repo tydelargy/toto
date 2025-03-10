@@ -5,9 +5,16 @@ const SMALL_TERM: u16 = 80;
 
 // Create splash screen based on the terminal size.
 
-fn splash_large() {}
+fn splash_large() {
+    println!(
+        "{:^36} | {:^30} | {:^20} | {:^2} | {:^10} | CREATED",
+        "ID", "TITLE", "DESCRIPTION", "PRIORITY", "STATUS",
+    );
+}
 
-fn splash_small() {}
+fn splash_small() {
+    println!("{:^8} | {:^10} | STATUS", "ID", "TITLE");
+}
 
 pub fn splash() {
     // Open the standard output terminal.
@@ -76,7 +83,7 @@ pub fn print_todo_small(verbose: bool, todo: &Todo, id: usize) {
 
     // Print in a compact format.
     // We allocate 8 characters for the id, 10 for the title, plus the status.
-    println!("{:<8} {:<10} {}", id_str, title, status_initial);
+    println!("{:^8} | {:^10} | {}", id_str, title, status_initial);
 }
 
 /// Prints a detailed summary of a todo item suitable for a ~50-60 column terminal.
@@ -117,7 +124,7 @@ pub fn print_todo_large(verbose: bool, todo: &Todo, id: usize) {
     // Print the detailed view.
     // Adjust column widths to fit within about 60 characters.
     println!(
-        "{:<36} | {:<30} | {:<20} | {:<2} | {:<10} | {}",
+        "{:^36} | {:^30} | {:^20} | {:^2} | {:^10} | {}",
         id_str, title, description, todo.data.priority, status, created_at
     );
 }

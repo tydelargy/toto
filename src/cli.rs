@@ -80,7 +80,14 @@ impl Cli {
                     .long_flag("add")
                     .short_flag('a')
                     .about("Add a todo")
-                    .arg(Arg::new("title").required(true))
+                    .arg(
+                        Arg::new("title")
+                            .required(true)
+                            .long("title")
+                            .short('t')
+                            .help("Title of the todo")
+                            .value_parser(value_parser!(String)),
+                    )
                     .arg(
                         Arg::new("description")
                             .required(false)
@@ -132,7 +139,7 @@ impl Cli {
                             .long("id")
                             .short('i')
                             .help("ID of the todo")
-                            .value_parser(value_parser!(Uuid)),
+                            .value_parser(value_parser!(String)),
                     )
                     .arg(
                         Arg::new("title")
@@ -208,7 +215,7 @@ impl Cli {
                             .long("id")
                             .short('i')
                             .help("ID of the todo")
-                            .value_parser(value_parser!(Uuid)),
+                            .value_parser(value_parser!(String)),
                     ),
             )
             .subcommand(
@@ -227,14 +234,22 @@ impl Cli {
             )
             .subcommand(Command::new("sync").about("Sync with git"))
             .get_matches();
+        println!("Loading...");
         self.load_todos()?;
+        println!("Exited Load");
 
         match matches.subcommand() {
             Some(("add", add_matches)) => {
+                println!("calling add");
                 let title = add_matches.get_one::<String>("title").unwrap();
                 let description = add_matches.get_one::<String>("description");
                 let priority = add_matches.get_one::<u8>("priority").unwrap();
                 let in_progress = add_matches.get_one::<bool>("in-progress").unwrap();
+
+                println!(
+                    "Adding with args Title {:?} Desc {:?} Priority {:?} In Prog{:?}",
+                    title, description, priority, in_progress
+                );
                 self.add_todo(title, description, priority, in_progress);
             }
             Some(("list", list_matches)) => {
@@ -276,7 +291,7 @@ impl Cli {
             }
             _ => {}
         };
-
+        println!("Saving...");
         self.save_todos()?;
 
         Ok(())
@@ -286,38 +301,44 @@ impl Cli {
         let file_path = format!("{}/todos.json", self.file_path);
 
         // Attempt to open the file create it if it doesn't exist
-        let file = OpenOptions::new()
-            .create(true)
+        if let Ok(file) = OpenOptions::new()
+            // .create(true)
             .read(true)
             .write(true)
             .open(file_path)
-            .context("Failed to open or create todo file")?;
+        {
+            println!("Opened or created");
 
-        let metadata = file.metadata().context("Failed to get file metadata")?;
+            let metadata = file.metadata().context("Failed to get file metadata")?;
 
-        // Early return if we created the file and it is empty.
-        if metadata.len() == 0 {
-            return Ok(());
+            // Early return if we created the file and it is empty.
+            if metadata.len() == 0 {
+                println!("returning early cuz empty");
+                return Ok(());
+            }
+
+            let reader = BufReader::new(file);
+            let todos: Vec<Todo> =
+                serde_json::from_reader(reader).context("Failed to deserialize todo list")?;
+
+            for todo in todos {
+                println!("LOADING: Read and inserted a todo");
+                self.todo_map.insert(todo.id, todo.data);
+            }
         }
 
-        let reader = BufReader::new(file);
-        let todos: Vec<Todo> =
-            serde_json::from_reader(reader).context("Failed to deserialize todo list")?;
-
-        for todo in todos {
-            self.todo_map.insert(todo.id, todo.data);
-        }
         Ok(())
     }
 
     fn save_todos(&self) -> Result<()> {
         let file_path = format!("{}/todos.json", self.file_path);
 
+        println!("Saving to {}", file_path);
         // Attempt to open the file create it if it doesn't exist
         let file = OpenOptions::new()
-            .create(true)
-            .read(true)
             .write(true)
+            .create(true)
+            .truncate(true)
             .open(file_path)
             .context("Failed to open or create todo file")?;
 
@@ -467,7 +488,6 @@ impl Cli {
         for (id, todo) in todos.iter().enumerate() {
             term::print_todo(verbose, todo, id);
         }
-        todo!("Fill in - call the formatters");
     }
 
     pub fn sync(&mut self) -> Result<()> {
